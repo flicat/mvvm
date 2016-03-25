@@ -4,7 +4,11 @@
 
 >**调用方法**：
 
-> - ```new MVVM(controllerName, data) //  新建一个MVVM对象 ```             
+> - ```new MVVM(controllerName, data) //  新建一个MVVM对象 ```      
+       
+>**对象属性**：
+
+> - ```MVVM.template //  artTemplate对象 ```             
 
 >**声明控制区域：**
 
