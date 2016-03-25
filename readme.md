@@ -4,7 +4,7 @@
 
 >**调用方法**：
 
-> - ```new MVVM(controllerName, data)```             //  新建一个MVVM对象
+> - ```new MVVM(controllerName, data) //  新建一个MVVM对象 ```             
 
 >**声明控制区域：**
 
@@ -21,7 +21,7 @@
 > <!-- 使用内置artTemplate模板：-->
 > <div vm-html="data">
 >     <script type="text/html">
->         <%= data.value%>
+>         <%= data.value %>
 >     </script>
 > </div>
 > ```
@@ -51,5 +51,6 @@
             
 >**参数详解：**
 
-> - @controllerName {String}       // 控制区域ID
-> - @data{Object}       // 需要监听的数据
+> - ```@controllerName {String}       // 控制区域ID    ```
+> - ```@data{Object}       // 需要监听的数据          ```
+                                                     
