@@ -20,7 +20,7 @@ var MVVM = (function() {
 
     // 判断是否为空对象
     var isEmpty = function(obj) {
-        if(obj && toString.call(obj) === "[object Object]"){
+        if(obj && ({}).toString.call(obj) === "[object Object]"){
             for(var i in obj){
                 if(obj.hasOwnProperty(i)){
                     return false;
@@ -31,28 +31,33 @@ var MVVM = (function() {
     };
     // 判断是否是对象
     var isObject = function (obj) {
-        return toString.call(obj) === "[object Object]"
+        return ({}).toString.call(obj) === "[object Object]"
+    };
+    // 判断是否是数组
+    var isArray = Array.isArray || function (obj) {
+        return ({}).toString.call(obj) === '[object Array]';
     };
     // 判断是否是字符串
     var isString = function (obj) {
-        return toString.call(obj) === "[object String]"
+        return ({}).toString.call(obj) === "[object String]"
     };
     // 判断是否是数字
     var isNumber = function (obj) {
-        return toString.call(obj) === "[object Number]"
+        return ({}).toString.call(obj) === "[object Number]"
     };
     // 判断是否是日期
     var isDate = function (obj) {
-        return toString.call(obj) === "[object Date]"
+        return ({}).toString.call(obj) === "[object Date]"
     };
     // 判断是否是boolean值
     var isBoolean = function (obj) {
-        return toString.call(obj) === "[object Boolean]"
+        return ({}).toString.call(obj) === "[object Boolean]"
     };
     // 判断是否是函数
     var isFunction = function (obj) {
-        return toString.call(obj) === "[object Function]"
+        return ({}).toString.call(obj) === "[object Function]"
     };
+
     // 获取DOM节点
     var querySelectorAll = function(selector) {
         var nodes = [].slice.call(document.querySelectorAll(selector));
@@ -108,13 +113,13 @@ var MVVM = (function() {
         var args = [].slice.call(arguments);
         var selector, callback;
 
-        if(({}).toString.call(args[1]) === '[object String]'){
+        if(isString(args[1])){
             selector = args[1];
         }
 
-        if(selector && ({}).toString.call(args[2]) === '[object Function]'){
+        if(selector && isFunction(args[2])){
             callback = args[2];
-        } else if(({}).toString.call(args[1]) === '[object Function]') {
+        } else if(isFunction(args[1])) {
             callback = args[1];
         } else {
             callback = function() {};
@@ -155,7 +160,7 @@ var MVVM = (function() {
     Element.prototype.off = function(event, handler) {
         var node = this;
 
-        if(({}).toString.call(handler) === '[object Function]'){
+        if(isFunction(handler)){
             node.removeEventListener(event, handler, false);
         } else if(node.__custom_event_live__ &&
             node.__custom_event_live__[event] &&
@@ -305,8 +310,6 @@ var MVVM = (function() {
         return value;
 
     };
-
-
     var escapeMap = {
         "<": "&#60;",
         ">": "&#62;",
@@ -324,11 +327,6 @@ var MVVM = (function() {
         return toString(content)
             .replace(/&(?![\w#]+;)|[<>"']/g, escapeFn);
     };
-
-
-    var isArray = Array.isArray || function (obj) {
-            return ({}).toString.call(obj) === '[object Array]';
-        };
 
 
     var each = function (data, callback) {
@@ -869,7 +867,7 @@ var MVVM = (function() {
             case 'button': break;
             case 'radio':
             case 'checkbox': event_name = 'click'; break;
-            default: event_name = 'change';
+            default: event_name = 'input';
         }
 
         // 表单元素双向绑定
