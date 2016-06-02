@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-cmn-Hans">
+<head>
+    <meta charset="utf-8">
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <meta name="format-detection" content="telephone=no,email=no">
+    <title>mvvm</title>
+    <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body vm-controller="my-vm">
+    <p class="wrap" vm-html="name" vm-css-color="color"></p>
+    <div class="wrap">
+        <input type="checkbox" name="color" vm-value="value" value="#99bbe1">
+        <input type="checkbox" name="color" vm-value="value" value="#99cef0">
+        <input type="checkbox" name="color" vm-value="value" value="#b8e2f6">
+        <input type="checkbox" name="color" vm-value="value" value="#d5f3f6">
+        <input type="checkbox" name="color" vm-value="value" value="#e6f8fa">
+        <input type="checkbox" name="color" vm-value="value" value="#f9ebc4">
+        <input type="checkbox" name="color" vm-value="value" value="#fbd7a9">
+        <input type="checkbox" name="color" vm-value="value" value="#e49191">
+    </div>
+    <div vm-html="value" vm-attr-class="'wrap size-' + value.length" vm-css-color="color">
+        <script type="text/html">
+            <%
+            for(var i = 0; i < value.length; i++){
+                var color = value[i];
+            %>
+            <span style="background-color: <%= color %>" vm-on-click="setBorderColor('<%= color %>')"></span>
+            <% } %>
+        </script>
+    </div>
+    <p class="wrap" vm-css-color="color">
+        <label>name: <input type="text" value="" vm-value="name" vm-css-border-color="color" vm-css-color="color"/></label>
+    </p>
+    <p class="wrap" vm-css-color="color">
+        <label>change color:
+            <select name="color" vm-html="value" vm-value="color">
+                <script type="text/html">
+                    <%
+                        for(var i = 0; i < value.length; i++){
+                            var color = value[i];
+                    %>
+                    <option value="<%= color %>"><%= color %></option>
+                    <% } %>
+                </script>
+            </select>
+        </label>
+    </p>
+    <script src="js/jquery.js"></script>
+    <script src="../dist/mvvm.js"></script>
+    <script>
+        var data = {
+            name: '彩虹',
+            value: [],
+            color: '',
+            setBorderColor: function(color) {
+                data.color = color;
+            }
+        };
+        new MVVM('my-vm', data);
+    </script>
+</body>
+</html>
