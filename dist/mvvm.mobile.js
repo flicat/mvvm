@@ -18,17 +18,20 @@
 
 var MVVM = (function() {
 
-    // 判断是否为空对象
-    var isEmpty = function(obj) {
-        if(obj && ({}).toString.call(obj) === "[object Object]"){
-            for(var i in obj){
-                if(obj.hasOwnProperty(i)){
-                    return false;
-                }
+    Object.prototype.forEachIn = function(callback) {
+        for(var key in this){
+            if(this.hasOwnProperty(key)){
+                callback(key, this[key]);
             }
         }
-        return true;
     };
+
+    Array.prototype.forEach = Array.prototype.forEach || function(callback) {
+        for(var i = 0, len = this.length; i< len; i++){
+            callback(this[i], i);
+        }
+    };
+
     // 判断是否是对象
     var isObject = function (obj) {
         return ({}).toString.call(obj) === "[object Object]"
@@ -40,18 +43,6 @@ var MVVM = (function() {
     // 判断是否是字符串
     var isString = function (obj) {
         return ({}).toString.call(obj) === "[object String]"
-    };
-    // 判断是否是数字
-    var isNumber = function (obj) {
-        return ({}).toString.call(obj) === "[object Number]"
-    };
-    // 判断是否是日期
-    var isDate = function (obj) {
-        return ({}).toString.call(obj) === "[object Date]"
-    };
-    // 判断是否是boolean值
-    var isBoolean = function (obj) {
-        return ({}).toString.call(obj) === "[object Boolean]"
     };
     // 判断是否是函数
     var isFunction = function (obj) {
@@ -67,14 +58,7 @@ var MVVM = (function() {
             return nodes;
         }
     };
-    // 遍历对象
-    var forEachIn = function(object, callback) {
-        for(var key in object){
-            if(object.hasOwnProperty(key)){
-                callback(key, object[key]);
-            }
-        }
-    };
+
     // 事件触发
     Element.prototype.trigger = function (type, data, e) {
         var event = document.createEvent('HTMLEvents');
@@ -770,7 +754,7 @@ var MVVM = (function() {
 
         var variable = getVariable(value);
 
-        forEachIn(variable || [], function(i, key) {
+        (variable || []).forEachIn(function(i, key) {
             code += 'var ' + key + ' = $VM_data.' + key + ';';
         });
 
@@ -812,7 +796,7 @@ var MVVM = (function() {
         this.getData = compile_get(value);
         this.update();
     };
-    VMHtml.prototype.update = function(name, value, oldValue, path) {
+    VMHtml.prototype.update = function(newValue) {
         var that = this;
         var data = that.data;
         var newValue;
@@ -945,7 +929,7 @@ var MVVM = (function() {
         }
 
         // update 方法
-        that.update = function(name, value, oldValue, path) {
+        that.update = function(newValue) {
             var newValue;
 
             if(that.isFlag){
@@ -972,7 +956,7 @@ var MVVM = (function() {
         this.getData = compile_get(value);
         this.update();
     };
-    VMCss.prototype.update = function(name, value, oldValue, path) {
+    VMCss.prototype.update = function(newValue) {
         var that = this;
         var data = that.data;
         var newValue;
@@ -998,7 +982,7 @@ var MVVM = (function() {
         this.getData = compile_get(value);
         this.update();
     };
-    VMAttr.prototype.update = function(name, value, oldValue, path) {
+    VMAttr.prototype.update = function(newValue) {
         var that = this;
         var data = that.data;
         var newValue;
@@ -1024,7 +1008,7 @@ var MVVM = (function() {
         this.getData = compile_get(value);
         this.update();
     };
-    VMEvent.prototype.update = function(name, value, oldValue, path) {
+    VMEvent.prototype.update = function(newValue) {
         var that = this,
             data = that.data,
             handler;
@@ -1046,123 +1030,113 @@ var MVVM = (function() {
         }
     };
 
-    // 对象监听方法 Observe.js
-    var Observe = function (target, arr, callback) {
-        if(!target.$observer)target.$observer=this;
-        var $observer=target.$observer;
-        var eventPropArr=[];
-        if (isArray(target)) {
-            if (target.length === 0) {
-                target.$observeProps = {};
-                target.$observeProps.$observerPath = "#";
-            }
-            $observer.mock(target);
+    // 对象监听方法
+    var defineProperty = Object.defineProperty;
+    var defineProperties = Object.defineProperties;
+    try {
+        // IE8下不支持定义对象
+        defineProperty({}, '_', {
+            value: 'test'
+        })
+    } catch (e) {
+        // 旧版本浏览器
+        if ('__defineGetter__' in {}) {
+            defineProperty = function(obj, prop, desc) {
+                if ('get' in desc) {
+                    obj.__defineGetter__(prop, desc.get)
+                }
+                if ('set' in desc) {
+                    obj.__defineSetter__(prop, desc.set)
+                }
+            };
+            defineProperties = function(obj, props) {
+                for (var prop in props) {
+                    defineProperty(obj, prop, props[prop])
+                }
+                return obj
+            };
+        }
+    }
+    var Observe = function(target, callback) {
+        this.callback = callback;        // 监听回调
 
-        }
-        for (var prop in target) {
-            if (target.hasOwnProperty(prop)) {
-                if (callback) {
-                    if (isArray(arr) && arr.indexOf(prop) > -1) {
-                        eventPropArr.push(prop);
-                        $observer.watch(target, prop);
-                    } else if (isString(arr) && prop == arr) {
-                        eventPropArr.push(prop);
-                        $observer.watch(target, prop);
-                    }
-                } else{
-                    eventPropArr.push(prop);
-                    $observer.watch(target, prop);
-                }
-            }
-        }
-        $observer.target = target;
-        if(!$observer.propertyChangedHandler)$observer.propertyChangedHandler=[];
-        var propChanged=callback ? callback : arr;
-        $observer.propertyChangedHandler.push({ all: !callback, propChanged: propChanged, eventPropArr: eventPropArr });
+        // 遍历属性
+        var propArr = [];
+        target.forEachIn(function(key) {
+            propArr.push(key);
+        });
+
+        // 返回被包装的对象
+        return this.watch(target, propArr);
     };
-    Observe.prototype = {
-        "_getRootName": function(prop,path){
-            if(path==="#"){
-                return prop;
-            }
-            return path.split("-")[1];
-        },
-        "onPropertyChanged": function (prop, value,oldValue,target,path) {
-            if(value!== oldValue && this.propertyChangedHandler){
-                var rootName=this._getRootName(prop,path);
-                for(var i=0,len=this.propertyChangedHandler.length;i<len;i++){
-                    var handler=this.propertyChangedHandler[i];
-                    if(handler.all||handler.eventPropArr.indexOf(rootName) > -1||rootName.indexOf("Array-")===0){
-                        handler.propChanged.call(this.target, prop, value, oldValue, path);
-                    }
-                }
-            }
-            if (prop.indexOf("Array-") !== 0 && typeof value === "object") {
-                this.watch(target,prop, target.$observeProps.$observerPath);
-            }
-        },
-        "mock": function (target) {
-            var self = this;
-            ["concat", "every", "filter", "forEach", "indexOf", "join",
-                "lastIndexOf", "map", "pop", "push",
-                "reduce", "reduceRight", "reverse",
-                "shift", "slice", "some", "sort", "splice", "unshift",
-                "toLocaleString","toString","size"].forEach(function (item) {
-                    target[item] = function () {
-                        var old =  Array.prototype.slice.call(this,0);
+    Observe.prototype.rewrite = function(array) {
+        // 如果是数组则监听数组修改方法
+        var that = this;
+        ["concat", "every", "filter", "forEach", "indexOf", "join",
+            "lastIndexOf", "map", "pop", "push",
+            "reduce", "reduceRight", "reverse",
+            "shift", "slice", "some", "sort", "splice", "unshift",
+            "toLocaleString","toString","size"].forEach(function(item, i) {
+                if(isFunction(array[item])){
+                    // 重写数组方法
+                    array[item] = function () {
                         var result = Array.prototype[item].apply(this, Array.prototype.slice.call(arguments));
-                        if (new RegExp("\\b" + item + "\\b").test(["concat", "pop", "push", "reverse", "shift", "sort", "splice", "unshift","size"].join(","))) {
-                            for (var cprop in this) {
-                                if (this.hasOwnProperty(cprop)  && !isFunction(this[cprop])) {
-                                    self.watch(this, cprop, this.$observeProps.$observerPath);
-                                }
-                            }
-                            self.onPropertyChanged("Array-"+item, this, old,this, this.$observeProps.$observerPath);
+                        if(/^concat|pop|push|reverse|shift|sort|splice|unshift|size$/ig.test(item)) {
+                            // 数组改动则重新监听
+                            var propArr = [];
+                            this.forEachIn(function(key) {
+                                !isFunction(this[key]) && propArr.push(key);
+                            });
+                            that.callback(this.length);
+                            that.watch(this, propArr);
                         }
                         return result;
                     };
-                });
-        },
-        "watch": function (target, prop, path) {
-            if (prop === "$observeProps"||prop === "$observer") return;
-            if (isFunction(target[prop])) return;
-            if (!target.$observeProps) target.$observeProps = {};
-            if(path !== undefined){
-                target.$observeProps.$observerPath = path;
-            }else{
-                target.$observeProps.$observerPath = "#";
-            }
-            var self = this;
-            var currentValue = target.$observeProps[prop] = target[prop];
-            Object.defineProperty(target, prop, {
-                get: function () {
-                    return this.$observeProps[prop];
-                },
-                set: function (value) {
-                    var old = this.$observeProps[prop];
-                    this.$observeProps[prop] = value;
-                    self.onPropertyChanged(prop, value, old, this, target.$observeProps.$observerPath);
                 }
             });
-            if (typeof currentValue == "object") {
-                if (isArray(currentValue)) {
-                    this.mock(currentValue);
-                    if (currentValue.length === 0) {
-                        if (!currentValue.$observeProps) currentValue.$observeProps = {};
-                        if (path !== undefined) {
-                            currentValue.$observeProps.$observerPath = path;
-                        } else {
-                            currentValue.$observeProps.$observerPath = "#";
-                        }
-                    }
+    };
+    Observe.prototype.watch = function(data, propArr) {
+
+        var that = this;
+        var props = {};
+
+        // 缓存对象，用于存取值（不至于陷入死循环）
+        var observeProps = {};
+
+        if(isArray(data)){
+            // 如果是数组则修改数组方法
+            that.rewrite(data);
+        }
+
+        propArr.forEach(function(key) {
+            observeProps[key] = data[key];
+            props[key] = {
+                get: function() {
+                    return observeProps[key];
+                },
+                set: function(newValue) {
+                    observeProps[key] = newValue;
+                    that.callback(newValue);
                 }
-                for (var cprop in currentValue) {
-                    if (currentValue.hasOwnProperty(cprop)) {
-                        this.watch(currentValue, cprop, target.$observeProps.$observerPath+"-"+prop);
-                    }
+            };
+
+            // 遍历对象
+            if(isObject(data[key]) || isArray(data[key])){
+                var subPropArr = [];
+
+                data[key].forEachIn(function(key) {
+                    subPropArr.push(key);
+                });
+
+                var observer = that.watch(data[key], subPropArr);
+                if(isObject(data[key])){
+                    // 在IE下定义后返回的是object，会覆盖数组方法，故只修改 object
+                    observeProps[key] = data[key] = observer;
                 }
             }
-        }
+        });
+
+        return defineProperties(data, props);
     };
 
     // MVVM 控件对象
@@ -1172,20 +1146,22 @@ var MVVM = (function() {
         this.onObserve = null;   // 对象修改触发事件
         this.element = querySelectorAll('[vm-controller="' + name + '"]');     // 控件父节点
         this.controllers = {};   // 控件节点数组
-        this.init(name, data);
+        this.init();
+
+        return this.data
     };
     MVVM.prototype = {
         constructor: MVVM,
         template: template,
         // 更新视图
-        accessor: function(name, value, oldValue, path) {       
+        accessor: function(newValue) {       
             var that = this;
             clearTimeout(that.timer);
 
             that.timer = setTimeout(function() {
-                forEachIn(that.controllers, function(i, controller) {        
+                that.controllers.forEachIn(function(i, controller) {
                     // 调用所有控件的 update 方法
-                    controller.update(name, value, oldValue, path);
+                    controller.update(newValue);
                 });
                 // 更新事件
                 isFunction(that.onObserve) && that.onObserve();
@@ -1195,8 +1171,8 @@ var MVVM = (function() {
         // 设置/封装data，绑定 set/get 事件
         factory: function(data) {           
             var that = this;
-            return new Observe(data, function (name, value, oldValue, path) {
-                that.accessor(name, value, oldValue, path);
+            return new Observe(data, function (newValue) {
+                that.accessor(newValue);
             });
         },
 
@@ -1208,7 +1184,7 @@ var MVVM = (function() {
             // 获取属性数组
             var getAttrArr = function(attributes) {           
                 var arr = [];
-                forEachIn(attributes || {}, function(i, item) {
+                (attributes || {}).forEachIn(function(i, item) {
                     arr.push({
                         name: item.name,
                         value: item.value
@@ -1229,7 +1205,7 @@ var MVVM = (function() {
 
                     // 是否需要继续扫描
                     var isInRange = true;
-                    forEachIn(getAttrArr(elem.attributes), function(i, attr) {      
+                    getAttrArr(elem.attributes).forEachIn(function(i, attr) {
                         var attr_name = (attr.name || '').trim();
                         var scanStamp = 'attr_' + Date.now() + '_' + Math.ceil(Math.random() * 1E6);
                         var attr_type = attr_name.match(/^vm-(\w+)/);
@@ -1317,8 +1293,8 @@ var MVVM = (function() {
         // 绑定控件及托管区域
         init: function() {               
             var that = this;
+            that.data = that.factory(that.data);     // 绑定 set/get 事件
             that.scanNode();                // 绑定事件与监听
-            that.factory(that.data);                 // 绑定 set/get 事件
         }
     };
 

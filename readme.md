@@ -1,15 +1,11 @@
-一个拼凑的MVVM插件
+一个简答的MVVM插件
 ===========
-由 [artTemplate](https://github.com/aui/artTemplate) 与 [observe.js](https://github.com/kmdjs/observejs) 拼凑而成，功能简单，目前只兼容最新版的现代浏览器，需要兼容老设备的coder们请谨慎使用。
+内置原生语法版 [artTemplate](https://github.com/aui/artTemplate) ，功能简单，兼容IE全家。
 
 >**调用方法**：
 
-> - ```new MVVM(controllerName, data) //  新建一个MVVM对象 ```      
+> - ```var vmData = new MVVM(controllerName, data) //  新建一个MVVM对象 ```      
        
->**对象属性**：
-
-> - ```MVVM.template //  artTemplate对象 ```             
-
 >**声明控制区域：**
 
 > ```
@@ -56,5 +52,5 @@
 >**参数详解：**
 
 > - ```@controllerName {String}       // 控制区域ID    ```
-> - ```@data{Object}       // 需要监听的数据          ```
+> - ```@data{Object}       // 需要监听的对象          ```
                                                      
