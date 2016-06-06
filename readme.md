@@ -1,4 +1,4 @@
-一个简答的MVVM插件
+一个简单的MVVM插件
 ===========
 内置原生语法版 [artTemplate](https://github.com/aui/artTemplate) ，功能简单，兼容IE全家。
 
