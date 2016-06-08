@@ -18,20 +18,6 @@
 
 var MVVM = (function() {
 
-    Object.prototype.forEachIn = function(callback) {
-        for(var key in this){
-            if(this.hasOwnProperty(key)){
-                callback(key, this[key]);
-            }
-        }
-    };
-
-    Array.prototype.forEach = Array.prototype.forEach || function(callback) {
-        for(var i = 0, len = this.length; i< len; i++){
-            callback(this[i], i);
-        }
-    };
-
     // 判断是否是对象
     var isObject = function (obj) {
         return ({}).toString.call(obj) === "[object Object]"
@@ -56,6 +42,14 @@ var MVVM = (function() {
             return []
         } else {
             return nodes;
+        }
+    };
+
+    var forEachIn = function(object, callback) {
+        for(var key in object){
+            if(object.hasOwnProperty(key)){
+                callback(key, object[key]);
+            }
         }
     };
 
@@ -754,7 +748,7 @@ var MVVM = (function() {
 
         var variable = getVariable(value);
 
-        (variable || []).forEachIn(function(i, key) {
+        forEachIn(variable || [], function(i, key) {
             code += 'var ' + key + ' = $VM_data.' + key + ';';
         });
 
@@ -1062,7 +1056,7 @@ var MVVM = (function() {
 
         // 遍历属性
         var propArr = [];
-        target.forEachIn(function(key) {
+        forEachIn(target, function(key) {
             propArr.push(key);
         });
 
@@ -1080,15 +1074,16 @@ var MVVM = (function() {
                 if(isFunction(array[item])){
                     // 重写数组方法
                     array[item] = function () {
-                        var result = Array.prototype[item].apply(this, Array.prototype.slice.call(arguments));
+                        var arr = this;
+                        var result = Array.prototype[item].apply(arr, Array.prototype.slice.call(arguments));
                         if(/^concat|pop|push|reverse|shift|sort|splice|unshift|size$/ig.test(item)) {
                             // 数组改动则重新监听
                             var propArr = [];
-                            this.forEachIn(function(key) {
-                                !isFunction(this[key]) && propArr.push(key);
+                            forEachIn(arr, function(key) {
+                                !isFunction(arr[key]) && propArr.push(key);
                             });
-                            that.callback(this.length);
-                            that.watch(this, propArr);
+                            that.callback(arr.length);
+                            that.watch(arr, propArr);
                         }
                         return result;
                     };
@@ -1124,7 +1119,7 @@ var MVVM = (function() {
             if(isObject(data[key]) || isArray(data[key])){
                 var subPropArr = [];
 
-                data[key].forEachIn(function(key) {
+                forEachIn(data[key], function(key) {
                     subPropArr.push(key);
                 });
 
@@ -1159,7 +1154,7 @@ var MVVM = (function() {
             clearTimeout(that.timer);
 
             that.timer = setTimeout(function() {
-                that.controllers.forEachIn(function(i, controller) {
+                forEachIn(that.controllers, function(i, controller) {
                     // 调用所有控件的 update 方法
                     controller.update(newValue);
                 });
@@ -1184,7 +1179,7 @@ var MVVM = (function() {
             // 获取属性数组
             var getAttrArr = function(attributes) {           
                 var arr = [];
-                (attributes || {}).forEachIn(function(i, item) {
+                forEachIn(attributes || {}, function(i, item) {
                     arr.push({
                         name: item.name,
                         value: item.value
@@ -1205,7 +1200,7 @@ var MVVM = (function() {
 
                     // 是否需要继续扫描
                     var isInRange = true;
-                    getAttrArr(elem.attributes).forEachIn(function(i, attr) {
+                    forEachIn(getAttrArr(elem.attributes), function(i, attr) {
                         var attr_name = (attr.name || '').trim();
                         var scanStamp = 'attr_' + Date.now() + '_' + Math.ceil(Math.random() * 1E6);
                         var attr_type = attr_name.match(/^vm-(\w+)/);
