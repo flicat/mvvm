@@ -90,7 +90,7 @@ var MVVM = (function() {
         var newArray = [];
         if(isArray(array)){
             $.each(array, function(i, item) {
-                if($.inArray(item, newArray)){
+                if($.inArray(item, newArray) < 0){
                     newArray.push(item);
                 }
             });
