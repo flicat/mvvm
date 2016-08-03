@@ -51,7 +51,7 @@
     <script src="../dist/mvvm.mobile.js"></script>
     <script>
         var colorArr = {'#99bbe1': '深蓝', '#99cef0': '蓝色', '#b8e2f6': '浅蓝', '#d5f3f6': '淡蓝', '#e6f8fa': '淡黄', '#f9ebc4': '浅黄', '#fbd7a9': '橘黄', '#e49191': '红色'};
-        var vmData = new MVVM('my-vm',  {
+        var vmData = MVVM.define('my-vm',  {
             name: '彩虹',
             value: ['#e49191'],
             color: '',
@@ -59,6 +59,10 @@
                 vmData.color = color;
                 vmData.name = colorArr[color];
             }
+        });
+
+        MVVM.vm['my-vm'].addObserveEvent(function(value) {
+            console.log(value);
         });
     </script>
 </body>

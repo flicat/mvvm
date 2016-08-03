@@ -18,14 +18,62 @@
 
 var MVVM = (function() {
 
+    /* 自定义事件
+     *
+     * 注册事件 add(event, handler)
+     * 触发事件 fire(event, data[, context])
+     * 删除事件 del(event[, handler])
+     *
+     * @event [string]  事件名称
+     * @handler [function]  回调函数
+     * @data [object] 传递给回调函数的参数
+     * @context [object] 函数执行的作用域
+     *
+     * */
+    var CustomEvent = (function() {
+        var events = {};
+
+        return {
+            add: function(event, handler) {
+                if(!events[event]){
+                    events[event] = [];
+                }
+                if(Object.prototype.toString.call(handler) === '[object Function]'){
+                    events[event].push(handler);
+                }
+            },
+            fire: function(event, data, context) {
+                if(events[event] && events[event].length){
+                    events[event].forEach(function(handler) {
+                        handler.call(context || null, data);
+                    });
+                }
+            },
+            del: function(event, handler) {
+                if(events[event]){
+                    if(handler){
+                        for(var i = 0, len = events[event].length; i < len; i++){
+                            if(handler === events[event][i]){
+                                break;
+                            }
+                        }
+                        events[event].splice(i, 1);
+                    } else {
+                        events[event].length = 0;
+                    }
+                }
+            }
+        };
+    })();
+
     // 判断是否是对象
     var isObject = function (obj) {
         return ({}).toString.call(obj) === "[object Object]"
     };
     // 判断是否是数组
     var isArray = Array.isArray || function (obj) {
-        return ({}).toString.call(obj) === '[object Array]';
-    };
+            return ({}).toString.call(obj) === '[object Array]';
+        };
     // 判断是否是字符串
     var isString = function (obj) {
         return ({}).toString.call(obj) === "[object String]"
@@ -36,8 +84,8 @@ var MVVM = (function() {
     };
 
     // 获取DOM节点
-    var querySelectorAll = function(selector) {
-        var nodes = [].slice.call(document.querySelectorAll(selector));
+    var querySelectorAll = function(selector, parent) {
+        var nodes = [].slice.call((parent || document).querySelectorAll(selector));
         if(!nodes.length){
             return []
         } else {
@@ -45,12 +93,26 @@ var MVVM = (function() {
         }
     };
 
+    // 对象遍历
     var forEachIn = function(object, callback) {
         for(var key in object){
             if(object.hasOwnProperty(key)){
                 callback(key, object[key]);
             }
         }
+    };
+
+    // 数组去重
+    var unique = function(array) {
+        var newArray = [];
+        if(isArray(array)){
+            array.forEach(function(item) {
+                if(newArray.indexOf(item) < 0){
+                    newArray.push(item);
+                }
+            });
+        }
+        return newArray;
     };
 
     // 事件触发
@@ -91,6 +153,10 @@ var MVVM = (function() {
         var args = [].slice.call(arguments);
         var selector, callback;
 
+        var eventArr = String(event).split('.');
+        var eventNameSpace = eventArr[1] || 'all';
+        event = eventArr[0];
+
         if(isString(args[1])){
             selector = args[1];
         }
@@ -107,8 +173,11 @@ var MVVM = (function() {
         if(!node.__custom_event_live__){
             node.__custom_event_live__ = {};
         }
-        if(!node.__custom_event_live__[event]){
-            node.__custom_event_live__[event] = [];
+        if(!node.__custom_event_live__[eventNameSpace]){
+            node.__custom_event_live__[eventNameSpace] = {};
+        }
+        if(!node.__custom_event_live__[eventNameSpace][event]){
+            node.__custom_event_live__[eventNameSpace][event] = [];
         }
 
         if(selector) {
@@ -126,10 +195,10 @@ var MVVM = (function() {
                 }
             };
 
-            node.__custom_event_live__[event].push(handler);
+            node.__custom_event_live__[eventNameSpace][event].push(handler);
             oldEventListener.call(node, event, handler, false);
         } else {
-            node.__custom_event_live__[event].push(callback);
+            node.__custom_event_live__[eventNameSpace][event].push(callback);
             oldEventListener.call(node, event, callback, false);
         }
 
@@ -138,12 +207,17 @@ var MVVM = (function() {
     Element.prototype.off = function(event, handler) {
         var node = this;
 
+        var eventArr = String(event).split('.');
+        var eventNameSpace = eventArr[1] || 'all';
+        event = eventArr[0];
+
         if(isFunction(handler)){
             node.removeEventListener(event, handler, false);
         } else if(node.__custom_event_live__ &&
-            node.__custom_event_live__[event] &&
-            node.__custom_event_live__[event].length){
-            node.__custom_event_live__[event].forEach(function(handler) {
+            node.__custom_event_live__[eventNameSpace] &&
+            node.__custom_event_live__[eventNameSpace][event] &&
+            node.__custom_event_live__[eventNameSpace][event].length){
+            node.__custom_event_live__[eventNameSpace][event].forEach(function(handler) {
                 node.removeEventListener(event, handler, false);
             });
         }
@@ -748,7 +822,7 @@ var MVVM = (function() {
 
         var variable = getVariable(value);
 
-        forEachIn(variable || [], function(i, key) {
+        forEachIn((variable || {}), function(i, key) {
             code += 'var ' + key + ' = $VM_data.' + key + ';';
         });
 
@@ -757,7 +831,7 @@ var MVVM = (function() {
         try{
             return new Function('$VM_data', code);
         } catch(e) {
-            console.error(e);
+            console.error(value, e);
         }
     };
 
@@ -766,7 +840,7 @@ var MVVM = (function() {
         try{
             return new Function('$VM_data', '$VM_value', '$VM_data.' + value + '=$VM_value');
         } catch(e) {
-            console.error(e);
+            console.error(value, e);
         }
     };
 
@@ -786,7 +860,6 @@ var MVVM = (function() {
 
         this.tmpl = tmplHtml || '';
         this.tmplRender = this.tmpl && template.compile(this.tmpl);
-        this.oldValue = null;
         this.getData = compile_get(value);
         this.update();
     };
@@ -798,7 +871,7 @@ var MVVM = (function() {
         try {
             newValue = that.getData(data)();
         } catch(e) {
-            console.error(e);
+            console.error(that, e);
         }
 
         if(that.oldValue !== newValue){
@@ -817,7 +890,6 @@ var MVVM = (function() {
         this.data = data;
         this.elem = elem;
         this.type = elem.type || undefined;
-        this.oldValue = null;
         this.getData = compile_get(value);
         this.setData = compile_set(value);
         this.isFlag = true;         // 防止循环赋值,单选/复选组只遍历第一个
@@ -831,29 +903,32 @@ var MVVM = (function() {
         var type = that.type;
         var name = elem.getAttribute('name');
 
-        var inputGroup;
-        var setValue;
+        var inputGroup;           // 单选框/复选框组
+        var setValue;             // 赋值方法
+        var eventHandler;         // 取值方法
 
-        var event_name = '';
+        var event_name = '';      // 事件
 
         switch(type) {
+            case 'file':
             case 'select-one':
-            case 'select-multiple': event_name = 'change'; break;
+            case 'select-multiple': event_name = 'change.vm_from'; break;
             case undefined:
             case 'submit':
             case 'reset':
             case 'button': break;
             case 'radio':
-            case 'checkbox': event_name = 'click'; break;
-            default: event_name = 'input';
+            case 'checkbox': event_name = 'click.vm_from'; break;
+            default: event_name = 'input.vm_from';
         }
 
         // 表单元素双向绑定
         if(/^(radio|checkbox)$/.test(type)){
             if(name && type == 'radio'){
                 // 如果是单选框组
-                inputGroup = querySelectorAll('input[name="' + name + '"]');
-                elem.off(event_name).on(event_name, function() {
+                inputGroup = querySelectorAll('input[name="' + name + '"]', elem.form);
+
+                eventHandler = function() {
                     var val = '';
                     inputGroup.forEach(function(input) {
                         if(input.checked){
@@ -861,20 +936,26 @@ var MVVM = (function() {
                         }
                     });
                     that.setData(data, val);
-                });
+                };
+                elem.off(event_name).on(event_name, eventHandler);
+
                 that.isFlag = (inputGroup[0] == elem);
 
                 // 赋值方法
                 setValue = function(newValue) {
                     inputGroup.forEach(function(input) {
-                        input.checked = (input.value == newValue);
-                        input.trigger('vm_change');
+                        var checked = input.value == newValue;
+                        if(input.checked != checked){
+                            input.checked = checked;
+                            input.trigger('vm_change');
+                        }
                     });
                 };
             } else if(name && type == 'checkbox'){
                 // 如果是复选框组
-                inputGroup = querySelectorAll('input[name="' + name + '"]');
-                elem.off(event_name).on(event_name, function() {
+                inputGroup = querySelectorAll('input[name="' + name + '"]', elem.form);
+
+                eventHandler = function() {
                     var val = [];
                     inputGroup.forEach(function(input) {
                         if(input.checked) {
@@ -882,45 +963,81 @@ var MVVM = (function() {
                         }
                     });
                     that.setData(data, val);
-                });
+                };
+                elem.off(event_name).on(event_name, eventHandler);
+
                 that.isFlag = (inputGroup[0] == elem);
 
                 // 赋值方法
                 setValue = function(newValue) {
                     inputGroup.forEach(function(input) {
+                        var checked;
                         if(isArray(newValue)){
-                            input.checked = (newValue.indexOf(input.value) > -1);
+                            checked = (newValue.indexOf(input.value) > -1);
                         } else {
-                            input.checked = (input.value == newValue);
+                            checked = (input.value == newValue);
                         }
-                        input.trigger('vm_change');
+
+                        if(input.checked != checked){
+                            input.checked = checked;
+                            input.trigger('vm_change');
+                        }
+
                     });
                 };
             } else {
                 // 单独的单选/复选
-                elem.off(event_name).on(event_name, function() {
+                eventHandler = function() {
                     var val = elem.checked ? elem.value : '';
                     that.setData(data, val);
-                });
+                };
+                elem.off(event_name).on(event_name, eventHandler);
 
                 // 赋值方法
                 setValue = function(newValue) {
-                    elem.checked = newValue == elem.value;
-                    elem.trigger('vm_change');
+                    var checked = newValue == elem.value;
+                    if(elem.checked != checked){
+                        elem.checked = checked;
+                        elem.trigger('vm_change');
+                    }
                 };
             }
-        } else {
+        } else if(type == 'file') {
             // 文本框/下拉菜单
-            event_name && elem.off(event_name).on(event_name, function() {
-                that.setData(data, elem.value);
-            });
+            eventHandler = function() {
+                that.setData(data, elem.files);
+            };
+            event_name && elem.off(event_name).on(event_name, eventHandler);
 
             // 赋值方法
             setValue = function(newValue) {
-                elem.value = String(newValue);
-                elem.trigger('vm_change');
+                setTimeout(function() {
+                    if(elem.value != String(newValue)){
+                        elem.value = String(newValue);
+                        elem.trigger('vm_change');
+                    }
+                }, 0);
+            };
+        } else {
+            // 文本框/下拉菜单
+            eventHandler = function() {
+                that.setData(data, elem.value);
+            };
+            event_name && elem.off(event_name).on(event_name, eventHandler);
+
+            // 赋值方法
+            setValue = function(newValue) {
+                setTimeout(function() {
+                    if(elem.value != String(newValue)){
+                        elem.value = String(newValue);
+                        elem.trigger('vm_change');
+                    }
+                }, 0);
             };
         }
+
+        // 浏览器记住表单值则赋值到变量
+        setTimeout(eventHandler, 500);
 
         // update 方法
         that.update = function(newValue) {
@@ -930,7 +1047,7 @@ var MVVM = (function() {
                 try {
                     newValue = that.getData(data)();
                 } catch(e) {
-                    console.error(e);
+                    console.error(that, e);
                 }
 
                 if((typeof newValue !== 'object' && that.oldValue !== newValue) || (isArray(newValue) && that.oldValue !== String(newValue))){
@@ -946,7 +1063,6 @@ var MVVM = (function() {
         this.data = data;
         this.elem = elem;
         this.prop = name.replace('vm-css-', '');
-        this.oldValue = null;
         this.getData = compile_get(value);
         this.update();
     };
@@ -958,7 +1074,7 @@ var MVVM = (function() {
         try {
             newValue = that.getData(data)();
         } catch(e) {
-            console.error(e);
+            console.error(that, e);
         }
 
         if(that.oldValue !== newValue){
@@ -972,7 +1088,6 @@ var MVVM = (function() {
         this.data = data;
         this.elem = elem;
         this.prop = name.replace('vm-attr-', '');
-        this.oldValue = null;
         this.getData = compile_get(value);
         this.update();
     };
@@ -984,12 +1099,16 @@ var MVVM = (function() {
         try {
             newValue = that.getData(data)();
         } catch(e) {
-            console.error(e);
+            console.error(that, e);
         }
 
         if(that.oldValue !== newValue){
             that.oldValue = newValue;
-            that.elem.setAttribute(that.prop, newValue);
+            if(that.prop in that.elem){
+                that.elem[that.prop] = newValue;
+            } else {
+                that.elem.setAttribute(that.prop, newValue);
+            }
         }
     };
 
@@ -997,8 +1116,7 @@ var MVVM = (function() {
     var VMEvent = function(data, elem, name, value) {
         this.data = data;
         this.elem = elem;
-        this.event = name.replace('vm-on-', '');
-        this.handler = null;
+        this.event = name.replace('vm-on-', '') + '.vm_event';
         this.getData = compile_get(value);
         this.update();
     };
@@ -1010,7 +1128,7 @@ var MVVM = (function() {
         try {
             handler = that.getData(data);
         } catch(e) {
-            console.error(e);
+            console.error(that, e);
         }
 
         if(that.handler !== handler){
@@ -1019,7 +1137,7 @@ var MVVM = (function() {
             try {
                 that.elem.off(that.event).on(that.event, handler);
             } catch(e) {
-                console.error(e);
+                console.error(that, e);
             }
         }
     };
@@ -1140,31 +1258,41 @@ var MVVM = (function() {
         this.data = data;        // 控件数据
         this.onObserve = null;   // 对象修改触发事件
         this.element = querySelectorAll('[vm-controller="' + name + '"]');     // 控件父节点
-        this.controllers = {};   // 控件节点数组
+        this.controllers = [];   // 控件节点数组
         this.init();
-
-        return this.data
     };
     MVVM.prototype = {
         constructor: MVVM,
-        template: template,
+
+        // 添加视图更新事件
+        addObserveEvent : function(handler) {
+            CustomEvent.add('observe', handler);
+        },
+
+        // 删除视图更新事件
+        removeObserveEvent : function(handler) {
+            CustomEvent.del('observe', handler);
+        },
+
         // 更新视图
-        accessor: function(newValue) {       
+        accessor: function(newValue) {
             var that = this;
             clearTimeout(that.timer);
 
             that.timer = setTimeout(function() {
-                forEachIn(that.controllers, function(i, controller) {
+
+                that.controllers.forEach(function(controller) {
                     // 调用所有控件的 update 方法
                     controller.update(newValue);
                 });
+
                 // 更新事件
-                isFunction(that.onObserve) && that.onObserve();
+                CustomEvent.fire('observe', newValue, that);
             }, 50);
         },
 
         // 设置/封装data，绑定 set/get 事件
-        factory: function(data) {           
+        factory: function(data) {
             var that = this;
             return new Observe(data, function (newValue) {
                 that.accessor(newValue);
@@ -1172,126 +1300,98 @@ var MVVM = (function() {
         },
 
         // 查找所有 vm 控件
-        scanNode: function() {          
+        scanNode: function(element) {
             var that = this;
             var controllers = that.controllers;
 
-            // 获取属性数组
-            var getAttrArr = function(attributes) {           
-                var arr = [];
-                forEachIn(attributes || {}, function(i, item) {
-                    arr.push({
-                        name: item.name,
-                        value: item.value
-                    });
-                });
-                return arr;
-            };
+            var controllerSelector = element.innerHTML.match(/\bvm(-(\w+))+/gim);
 
-            var scanAttr = function(elem) {         
-                if(!elem.__global_scan_stamp__ && String(elem.nodeName).toLowerCase() !== 'script'){
-                    elem.__global_scan_stamp__ = 'vm_' + Date.now() + '_' + Math.ceil(Math.random() * 1E6);
+            // 属性去重
+            unique(controllerSelector).forEach(function(attr_name) {
+                var attr_type = attr_name.match(/^vm-(\w+)/);
 
-                    // 已扫描的属性列表
-                    var attrList = [];
-
-                    // 已扫描的控件
-                    var vmList = [];
-
-                    // 是否需要继续扫描
-                    var isInRange = true;
-                    forEachIn(getAttrArr(elem.attributes), function(i, attr) {
-                        var attr_name = (attr.name || '').trim();
-                        var scanStamp = 'attr_' + Date.now() + '_' + Math.ceil(Math.random() * 1E6);
-                        var attr_type = attr_name.match(/^vm-(\w+)/);
-
-                        if(attr_type && attr_type.length && attr_type[1]){
-                            if(attr_type[1] == 'controller'){
-                                isInRange = false;
-                            } else {
-                                switch(attr_type[1]) {
-                                    // html控件
-                                    case 'html': controllers[scanStamp] = new VMHtml(that.data, elem, attr_name, attr.value);  break;
-                                    // 表单控件
-                                    case 'value': controllers[scanStamp] = new VMForm(that.data, elem, attr_name, attr.value); break;
-                                    // 样式控件
-                                    case 'css': controllers[scanStamp] = new VMCss(that.data, elem, attr_name, attr.value); break;
-                                    // 属性控件
-                                    case 'attr': controllers[scanStamp] = new VMAttr(that.data, elem, attr_name, attr.value); break;
-                                    // 事件控件
-                                    case 'on': controllers[scanStamp] = new VMEvent(that.data, elem, attr_name, attr.value); break;
-                                }
-                                attrList.push(attr_name);
-                                vmList.push(scanStamp);
-                            }
-                        }
-                    });
-
-                    // 遍历扫描子节点
-                    var vmChildren = [];
-                    if(isInRange){
-                        [].slice.call(elem.children).forEach(function(item) {
-                            vmChildren = vmChildren.concat(scanAttr(item));
-                        });
-                    }
-
-                    // 删除已扫描的属性
-                    if(attrList.length) {
-                        attrList.forEach(function(attr) {
-                            elem.removeAttribute(attr);
-                        });
-                        // 子节点是否有VM控件
-                        elem.__vm_children__ = vmChildren.concat();
-                    }
-
-                    return vmList.concat(vmChildren);
-                } else {
-                    return [];
-                }
-            };
-
-            // 查找节点下所有控件
-            that.element.forEach(function(node) {
-                [].slice.call(node.children).forEach(function(node) {
-                    scanAttr(node);
-                });
-
-                // 绑定HTML更改事件
-                node.off('vm_update_html').on('vm_update_html', function(e) {    
-                    e.preventDefault();
-                    e.stopPropagation();
-
-                    var elem = e.target;
-                    var vmChildren = elem.__vm_children__;
-                    setTimeout(function() {
-                        // 删除不存在的节点
-                        if(vmChildren && vmChildren.length){
-                            vmChildren.forEach(function(key) {
-                                delete controllers[key];
+                if(attr_type && attr_type.length && attr_type[1]){
+                    switch(attr_type[1]) {
+                        // html控件
+                        case 'html':
+                            querySelectorAll('[' + attr_name + ']', element).forEach(function(node) {
+                                controllers.push(new VMHtml(that.data, node, attr_name, node.getAttribute(attr_name)));
+                                node.removeAttribute(attr_name);
                             });
-                        } else {
-                            vmChildren = elem.__vm_children__ = [];
-                        }
-
-                        // 重新遍历子节点
-                        [].slice.call(elem.children).forEach(function(node) {
-                            vmChildren = vmChildren.concat(scanAttr(node));
-                        });
-                        elem.__vm_children__ = vmChildren;
-                    }, 50);
-                });
-
+                            break;
+                        // 表单控件
+                        case 'value':
+                            querySelectorAll('[' + attr_name + ']', element).forEach(function(node) {
+                                controllers.push(new VMForm(that.data, node, attr_name, node.getAttribute(attr_name)));
+                                node.removeAttribute(attr_name);
+                            });
+                            break;
+                        // 样式控件
+                        case 'css':
+                            querySelectorAll('[' + attr_name + ']', element).forEach(function(node) {
+                                controllers.push(new VMCss(that.data, node, attr_name, node.getAttribute(attr_name)));
+                                node.removeAttribute(attr_name);
+                            });
+                            break;
+                        // 属性控件
+                        case 'attr':
+                            querySelectorAll('[' + attr_name + ']', element).forEach(function(node) {
+                                controllers.push(new VMAttr(that.data, node, attr_name, node.getAttribute(attr_name)));
+                                node.removeAttribute(attr_name);
+                            });
+                            break;
+                        // 事件控件
+                        case 'on':
+                            querySelectorAll('[' + attr_name + ']', element).forEach(function(node) {
+                                controllers.push(new VMEvent(that.data, node, attr_name, node.getAttribute(attr_name)));
+                                node.removeAttribute(attr_name);
+                            });
+                            break;
+                    }
+                }
             });
-
         },
 
         // 绑定控件及托管区域
-        init: function() {               
+        init: function() {
             var that = this;
             that.data = that.factory(that.data);     // 绑定 set/get 事件
-            that.scanNode();                // 绑定事件与监听
+
+            try{
+                that.data.__VM__ = that;
+            } catch(e) {}
+
+            // 绑定事件与监听
+            that.element.forEach(function(element) {
+                that.scanNode(element);
+
+                // 绑定HTML更改事件
+                element.off('vm_update_html').on('vm_update_html', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    that.controllers = that.controllers.filter(function(controller) {
+                        return document.body.contains(controller.elem);
+                    });
+
+                    that.scanNode(e.target);
+                });
+
+                element.removeAttribute('vm-controller');
+            });
         }
     };
 
-    return MVVM;
+    return {
+        template: template,
+        vm: {},
+        define: function(name, data) {
+            // 创建 mvvm 对象
+            var vm = new MVVM(name, data);
+            // 保存对象到返回值
+            this.vm[name] = vm;
+            // 返回数据
+            return vm.data;
+        }
+    };
 })();

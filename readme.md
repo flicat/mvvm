@@ -2,9 +2,25 @@
 ===========
 内置原生语法版 [artTemplate](https://github.com/aui/artTemplate) ，功能简单，兼容IE全家。
 
->**调用方法**：
+>**MVVM对象属性：**
 
-> - ```var vmData = new MVVM(controllerName, data) //  新建一个MVVM对象 ```      
+> - ```template {template}       // template模板对象    ```
+> - ```vm  {Object}       // vm对象字典          ```
+                                                                 
+>**MVVM对象方法：**
+
+> - ```var vmData = MVVM.define(controllerName, data) //  新建一个MVVM对象 ```      
+    
+
+>**@vm对象方法：**
+
+> - ```addObserveEvent(handler)       // 添加视图更新事件   ```
+> - ```removeObserveEvent(handler)      // 删除视图更新事件     ```
+                                                                 
+>**MVVM对象方法：**
+
+> - ```var vmData = MVVM.define(controllerName, data) //  新建一个MVVM对象 ```      
+       
        
 >**声明控制区域：**
 
@@ -53,4 +69,5 @@
 
 > - ```@controllerName {String}       // 控制区域ID    ```
 > - ```@data{Object}       // 需要监听的对象          ```
+                                                                                                        
                                                      
