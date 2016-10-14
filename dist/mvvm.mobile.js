@@ -72,8 +72,8 @@ var MVVM = (function() {
     };
     // 判断是否是数组
     var isArray = Array.isArray || function (obj) {
-            return ({}).toString.call(obj) === '[object Array]';
-        };
+        return ({}).toString.call(obj) === '[object Array]';
+    };
     // 判断是否是字符串
     var isString = function (obj) {
         return ({}).toString.call(obj) === "[object String]"
@@ -912,14 +912,14 @@ var MVVM = (function() {
         switch(type) {
             case 'file':
             case 'select-one':
-            case 'select-multiple': event_name = 'change.vm_from'; break;
+            case 'select-multiple': event_name = 'change.vm_form'; break;
             case undefined:
             case 'submit':
             case 'reset':
             case 'button': break;
             case 'radio':
-            case 'checkbox': event_name = 'click.vm_from'; break;
-            default: event_name = 'input.vm_from';
+            case 'checkbox': event_name = 'click.vm_form'; break;
+            default: event_name = 'input.vm_form';
         }
 
         // 表单元素双向绑定
@@ -1012,8 +1012,8 @@ var MVVM = (function() {
             // 赋值方法
             setValue = function(newValue) {
                 setTimeout(function() {
-                    if(elem.value != String(newValue)){
-                        elem.value = String(newValue);
+                    if(!newValue){
+                        elem.value = '';
                         elem.trigger('vm_change');
                     }
                 }, 0);
@@ -1037,7 +1037,9 @@ var MVVM = (function() {
         }
 
         // 浏览器记住表单值则赋值到变量
-        setTimeout(eventHandler, 500);
+        window.addEventListener('load', function() {
+            setTimeout(eventHandler, 500);
+        });
 
         // update 方法
         that.update = function(newValue) {
@@ -1050,9 +1052,11 @@ var MVVM = (function() {
                     console.error(that, e);
                 }
 
-                if((typeof newValue !== 'object' && that.oldValue !== newValue) || (isArray(newValue) && that.oldValue !== String(newValue))){
-                    that.oldValue = isArray(newValue) ? String(newValue) : newValue;
+                if((typeof newValue === 'object' && !isArray(newValue)) || String(that.oldValue) !== String(newValue)){
+
+                    that.oldValue = (typeof newValue === 'object' && !isArray(newValue)) ? newValue : String(newValue);
                     setValue(newValue);
+
                 }
             }
         };
@@ -1287,7 +1291,7 @@ var MVVM = (function() {
                 });
 
                 // 更新事件
-                CustomEvent.fire('observe', newValue, that);
+                CustomEvent.fire('observe', null, that);
             }, 50);
         },
 
