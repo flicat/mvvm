@@ -861,7 +861,6 @@ var MVVM = (function() {
         this.tmpl = tmplHtml || '';
         this.tmplRender = this.tmpl && template.compile(this.tmpl);
         this.getData = compile_get(value);
-        this.update();
     };
     VMHtml.prototype.update = function(newValue) {
         var that = this;
@@ -894,7 +893,6 @@ var MVVM = (function() {
         this.setData = compile_set(value);
         this.isFlag = true;         // 防止循环赋值,单选/复选组只遍历第一个
         this.init();
-        this.update();
     };
     VMForm.prototype.init = function() {
         var that = this;
@@ -1068,7 +1066,6 @@ var MVVM = (function() {
         this.elem = elem;
         this.prop = name.replace('vm-css-', '');
         this.getData = compile_get(value);
-        this.update();
     };
     VMCss.prototype.update = function(newValue) {
         var that = this;
@@ -1093,7 +1090,6 @@ var MVVM = (function() {
         this.elem = elem;
         this.prop = name.replace('vm-attr-', '');
         this.getData = compile_get(value);
-        this.update();
     };
     VMAttr.prototype.update = function(newValue) {
         var that = this;
@@ -1122,7 +1118,6 @@ var MVVM = (function() {
         this.elem = elem;
         this.event = name.replace('vm-on-', '') + '.vm_event';
         this.getData = compile_get(value);
-        this.update();
     };
     VMEvent.prototype.update = function(newValue) {
         var that = this,
@@ -1256,14 +1251,40 @@ var MVVM = (function() {
         return defineProperties(data, props);
     };
 
+    // MVVM 控件列表
+    var vmControllerList = {};
+
     // MVVM 控件对象
     var MVVM = function(name, data) {
-        this.name = name;        // 控件名称
-        this.data = data;        // 控件数据
-        this.onObserve = null;   // 对象修改触发事件
-        this.element = querySelectorAll('[vm-controller="' + name + '"]');     // 控件父节点
-        this.controllers = [];   // 控件节点数组
-        this.init();
+        var that = this;
+
+        that.name = name;        // 控件名称
+        that.data = data;        // 控件数据
+
+        // 手动添加MVVM方法
+        data.__addObserveEvent__ = that.addObserveEvent;
+        data.__removeObserveEvent__ = that.removeObserveEvent;
+        data.__update__ = function() {
+            that.accessor();
+        };
+
+        if(vmControllerList[name]){
+
+            that.element = vmControllerList[name].elements;     // 控件父节点
+
+            var controllers = [];
+
+            vmControllerList[name].controller.forEach(function(controller) {
+                var constructor = controller.constructor;
+                var control = new constructor(data, controller.node, controller.attr_name, controller.attr_val);
+                controllers.push(control);
+            });
+            that.controllers = controllers;   // 控件节点数组
+
+            that.init();
+
+        }
+
     };
     MVVM.prototype = {
         constructor: MVVM,
@@ -1279,7 +1300,7 @@ var MVVM = (function() {
         },
 
         // 更新视图
-        accessor: function(newValue) {
+        accessor: function(newValue) {       
             var that = this;
             clearTimeout(that.timer);
 
@@ -1296,7 +1317,7 @@ var MVVM = (function() {
         },
 
         // 设置/封装data，绑定 set/get 事件
-        factory: function(data) {
+        factory: function(data) {           
             var that = this;
             return new Observe(data, function (newValue) {
                 that.accessor(newValue);
@@ -1306,59 +1327,45 @@ var MVVM = (function() {
         // 查找所有 vm 控件
         scanNode: function(element) {
             var that = this;
-            var controllers = that.controllers;
-
             var controllerSelector = element.innerHTML.match(/\bvm(-(\w+))+/gim);
+
+            var constructor = {
+                html: VMHtml,
+                value: VMForm,
+                css: VMCss,
+                attr: VMAttr,
+                on: VMEvent
+            };
 
             // 属性去重
             unique(controllerSelector).forEach(function(attr_name) {
                 var attr_type = attr_name.match(/^vm-(\w+)/);
 
-                if(attr_type && attr_type.length && attr_type[1]){
-                    switch(attr_type[1]) {
-                        // html控件
-                        case 'html':
-                            querySelectorAll('[' + attr_name + ']', element).forEach(function(node) {
-                                controllers.push(new VMHtml(that.data, node, attr_name, node.getAttribute(attr_name)));
-                                node.removeAttribute(attr_name);
-                            });
-                            break;
-                        // 表单控件
-                        case 'value':
-                            querySelectorAll('[' + attr_name + ']', element).forEach(function(node) {
-                                controllers.push(new VMForm(that.data, node, attr_name, node.getAttribute(attr_name)));
-                                node.removeAttribute(attr_name);
-                            });
-                            break;
-                        // 样式控件
-                        case 'css':
-                            querySelectorAll('[' + attr_name + ']', element).forEach(function(node) {
-                                controllers.push(new VMCss(that.data, node, attr_name, node.getAttribute(attr_name)));
-                                node.removeAttribute(attr_name);
-                            });
-                            break;
-                        // 属性控件
-                        case 'attr':
-                            querySelectorAll('[' + attr_name + ']', element).forEach(function(node) {
-                                controllers.push(new VMAttr(that.data, node, attr_name, node.getAttribute(attr_name)));
-                                node.removeAttribute(attr_name);
-                            });
-                            break;
-                        // 事件控件
-                        case 'on':
-                            querySelectorAll('[' + attr_name + ']', element).forEach(function(node) {
-                                controllers.push(new VMEvent(that.data, node, attr_name, node.getAttribute(attr_name)));
-                                node.removeAttribute(attr_name);
-                            });
-                            break;
-                    }
+                if(attr_type && attr_type.length && attr_type[1] && constructor[attr_type[1]]){
+
+                    var cons = constructor[attr_type[1]];
+
+                    querySelectorAll('[' + attr_name + ']', element).forEach(function(node) {
+                        var tag = new cons(that.data, node, attr_name, node.getAttribute(attr_name));
+
+                        that.controllers.push(tag);
+                        node.removeAttribute(attr_name);
+
+                    });
+
                 }
             });
+
+
+            // 更新节点
+            that.accessor();
+
         },
 
         // 绑定控件及托管区域
-        init: function() {
+        init: function() {               
             var that = this;
+
             that.data = that.factory(that.data);     // 绑定 set/get 事件
 
             try{
@@ -1367,24 +1374,101 @@ var MVVM = (function() {
 
             // 绑定事件与监听
             that.element.forEach(function(element) {
-                that.scanNode(element);
 
                 // 绑定HTML更改事件
+                var timer = null;
                 element.off('vm_update_html').on('vm_update_html', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
 
-                    that.controllers = that.controllers.filter(function(controller) {
-                        return document.body.contains(controller.elem);
-                    });
+                    clearTimeout(timer);
 
-                    that.scanNode(e.target);
+                    timer = setTimeout(function() {
+
+                        that.controllers = that.controllers.filter(function(controller) {
+                            return document.body.contains(controller.elem);
+                        });
+
+                        that.scanNode(element);
+
+                    }, 0);
+
                 });
 
-                element.removeAttribute('vm-controller');
             });
+
+            // 更新节点
+            that.accessor();
         }
     };
+
+    // 初始化遍历所有VM节点
+    var scanController = function(nodes) {
+        nodes.forEach(function(element) {
+            var name = element.getAttribute('vm-controller');
+
+            if(name){
+
+                if(!vmControllerList[name]){
+                    vmControllerList[name] = {};
+                }
+                if(!vmControllerList[name].elements){
+                    vmControllerList[name].elements = [];
+                }
+                if(!vmControllerList[name].controller){
+                    vmControllerList[name].controller = [];
+                }
+
+                if(vmControllerList[name].elements.indexOf(element) < 0){
+                    vmControllerList[name].elements.push(element);
+
+                    scanController(querySelectorAll('[vm-controller]', element));
+
+                    var controllerSelector = element.innerHTML.match(/\bvm(-(\w+))+/gim);
+
+                    var constructor = {
+                        html: VMHtml,
+                        value: VMForm,
+                        css: VMCss,
+                        attr: VMAttr,
+                        on: VMEvent
+                    };
+
+                    // 属性去重
+                    unique(controllerSelector).forEach(function(attr_name) {
+
+                        var attr_type = attr_name.match(/^vm-(\w+)/);
+
+                        if(attr_type && attr_type.length && attr_type[1] && constructor[attr_type[1]]){
+
+                            var cons = constructor[attr_type[1]];
+
+                            querySelectorAll('[' + attr_name + ']', element).forEach(function(node) {
+                                vmControllerList[name].controller.push({
+                                    node: node,
+                                    attr_name: attr_name,
+                                    attr_val: node.getAttribute(attr_name),
+                                    constructor: cons
+                                });
+                                node.removeAttribute(attr_name);
+                            });
+
+                        }
+                    });
+
+                    element.removeAttribute('vm-controller');
+
+                }
+
+            }
+
+
+
+        });
+    };
+
+    scanController(querySelectorAll('[vm-controller]'));
+
 
     return {
         template: template,
