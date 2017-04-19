@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-cmn-Hans">
+<head>
+    <meta charset="utf-8">
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <meta name="format-detection" content="telephone=no,email=no">
+    <title>mvvm</title>
+    <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body vm-controller="my-vm">
+    <div class="wrap">
+        <section class="html">
+            <p vm-css-color="color">Hello, <span vm-html="name"></span> !</p>
+            <div vm-html="value" vm-attr-class="'wrap size-' + value.length" vm-css-color="color">
+                <script type="text/html">
+                    <%
+                    for(var i = 0; i < value.length; i++){
+                        var color = value[i];
+                    %>
+                    <span style="background-color: <%= color %>" vm-on-click="setBorderColor('<%= color %>')"></span>
+                    <% } %>
+                </script>
+            </div>
+        </section>
+        <section class="form">
+            <div class="row" vm-html="colorArr">
+                <script type="text/html">
+                    <% for(var key in colorArr){ %>
+                    <label vm-css-color="color">
+                        <span><%= colorArr[key] %></span>
+                        <input type="checkbox" name="color" vm-value="value" value="<%= key %>">
+                    </label>
+                    <% } %>
+                </script>
+            </div>
+            <div class="row" vm-html="colorArr">
+                <script type="text/html">
+                    <% for(var key in colorArr){ %>
+                    <label vm-css-color="color">
+                        <span><%= colorArr[key] %></span>
+                        <input type="radio" name="color" vm-value="color" value="<%= key %>">
+                    </label>
+                    <% } %>
+                </script>
+            </div>
+            <div class="wrap" vm-css-color="color">
+                <label>change color:
+                    <select name="color" vm-html="value" vm-value="color">
+                        <script type="text/html">
+                            <%
+                            for(var i = 0; i < value.length; i++){
+                                var color = value[i];
+                            %>
+                            <option value="<%= color %>"><%= colorArr[color] %></option>
+                            <% } %>
+                        </script>
+                    </select>
+                </label>
+            </div>
+            <div class="wrap" vm-css-color="color">
+                <label>name: <input type="text" value="" vm-value="name" vm-css-border-color="color" vm-css-color="color"/></label>
+            </div>
+        </section>
+    </div>
+
+    <script src="../src/mvvm.js"></script>
+    <script>
+        var colorArr = {'red': '红色', 'orange': '橙色', 'yellow': '黄色', 'green': '绿色', 'cyan': '青色', 'blue': '蓝色', 'purple': '紫色'};
+        var vmData = MVVM.define('my-vm',  {
+            name: '彩虹',
+            colorArr: colorArr,
+            value: ['green'],
+            color: '',
+            setBorderColor: function(color) {
+                vmData.color = color;
+                vmData.name = colorArr[color];
+            }
+        });
+
+        vmData.__addObserveEvent__.call(vmData, function() {
+            console && console.log(vmData.color);
+        });
+
+    </script>
+</body>
+</html>
