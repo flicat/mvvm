@@ -154,6 +154,25 @@ var MVVM = (function() {
 
     // DOM绑定事件
     var addEventListener = function (element , type , handler){
+
+        var eventArr = String(type).split('.');
+        var eventNameSpace = eventArr[1] || 'all';
+        type = eventArr[0];
+
+
+        // 记录委托的事件
+        if(!element.__customEvent){
+            element.__customEvent = {};
+        }
+        if(!element.__customEvent[eventNameSpace]){
+            element.__customEvent[eventNameSpace] = {};
+        }
+        if(!element.__customEvent[eventNameSpace][type]){
+            element.__customEvent[eventNameSpace][type] = [];
+        }
+
+        element.__customEvent[eventNameSpace][type].push(handler);
+
         if(element.addEventListener){
             element.addEventListener(type , handler , false);
         } else if(element.attachEvent){
@@ -161,64 +180,39 @@ var MVVM = (function() {
         } else {
             element['on' + type] = handler;
         }
+
     };
 
     // DOM解绑事件
     var removeEventListener = function (element , type , handler){
-        if(element.removeEventListener){
-            element.removeEventListener(type , handler , false);
-        } else if(element.detachEvent){
-            element.detachEvent('on' + type , handler);
-        } else {
-            element['on' + type] = null;
-        }
-    };
 
-    // 事件绑定
-    Element.prototype.on = function(event, handler) {
-        var node = this;
-
-        var eventArr = String(event).split('.');
+        var eventArr = String(type).split('.');
         var eventNameSpace = eventArr[1] || 'all';
-        event = eventArr[0];
+        type = eventArr[0];
 
+        var remove = function(element, type, handler){
 
-        // 记录委托的事件
-        if(!node.__customEvent){
-            node.__customEvent = {};
-        }
-        if(!node.__customEvent[eventNameSpace]){
-            node.__customEvent[eventNameSpace] = {};
-        }
-        if(!node.__customEvent[eventNameSpace][event]){
-            node.__customEvent[eventNameSpace][event] = [];
-        }
+            if(element.removeEventListener){
+                element.removeEventListener(type , handler , false);
+            } else if(element.detachEvent){
+                element.detachEvent('on' + type , handler);
+            } else {
+                element['on' + type] = null;
+            }
 
-        node.__customEvent[eventNameSpace][event].push(handler);
-        addEventListener(node, event, handler);
-
-        return node;
-    };
-
-    // 事件解绑
-    Element.prototype.off = function(event, handler) {
-        var node = this;
-
-        var eventArr = String(event).split('.');
-        var eventNameSpace = eventArr[1] || 'all';
-        event = eventArr[0];
+        };
 
         if(isFunction(handler)){
-            removeEventListener(node, event, handler);
-        } else if(node.__customEvent &&
-            node.__customEvent[eventNameSpace] &&
-            node.__customEvent[eventNameSpace][event] &&
-            node.__customEvent[eventNameSpace][event].length){
-            node.__customEvent[eventNameSpace][event].forEach(function(handler) {
-                removeEventListener(node, event, handler);
+            remove(element, type, handler);
+        } else if(element.__customEvent &&
+            element.__customEvent[eventNameSpace] &&
+            element.__customEvent[eventNameSpace][type] &&
+            element.__customEvent[eventNameSpace][type].length){
+            element.__customEvent[eventNameSpace][type].forEach(function(handler) {
+                remove(element, type, handler);
             });
         }
-        return node;
+
     };
 
 
@@ -1072,13 +1066,15 @@ var MVVM = (function() {
 
         // 表单元素双向绑定
         if(type == 'radio'){        // 单选框
-
-            elem.off(event_name).on(event_name, function() {
+            eventHandler = function() {
                 if(elem.checked){
                     that.setData(data, elem.value);
                     elem.__is_set_val__ = true;
                 }
-            });
+            };
+
+            removeEventListener(elem, event_name);
+            addEventListener(elem, event_name, eventHandler);
 
             // 赋值方法
             setValue = function(newValue) {
@@ -1112,7 +1108,8 @@ var MVVM = (function() {
 
             };
 
-            elem.off(event_name).on(event_name, eventHandler);
+            removeEventListener(elem, event_name);
+            addEventListener(elem, event_name, eventHandler);
 
             // 赋值方法
             setValue = function(newValue) {
@@ -1137,7 +1134,8 @@ var MVVM = (function() {
                 elem.__is_set_val__ = true;
             };
 
-            event_name && elem.off(event_name).on(event_name, eventHandler);
+            event_name && removeEventListener(elem, event_name);
+            addEventListener(elem, event_name, eventHandler);
 
             // 赋值方法
             setValue = function(newValue) {
@@ -1160,7 +1158,8 @@ var MVVM = (function() {
                 elem.__is_set_val__ = true;
             };
 
-            event_name && elem.off(event_name).on(event_name, eventHandler);
+            event_name && removeEventListener(elem, event_name);
+            addEventListener(elem, event_name, eventHandler);
 
             // 赋值方法
             setValue = function(newValue) {
@@ -1274,7 +1273,8 @@ var MVVM = (function() {
             that.handler = handler;
 
             try {
-                that.elem.off(that.event).on(that.event, handler);
+                removeEventListener(that.elem, that.event);
+                addEventListener(that.elem, that.event, handler);
             } catch(e) {
                 console.error(that, e);
             }
@@ -1348,7 +1348,7 @@ var MVVM = (function() {
         scanNode: function(element) {
             var that = this;
 
-            scanController(element, that);
+            scanControllerNodes(element, that);
 
             clearTimeout(that.scanTimer);
 
@@ -1385,7 +1385,9 @@ var MVVM = (function() {
 
                 if(!controller.controller){
                     var cons = constructor[controller.type];
-                    controller.controller = new cons(data, controller.node, controller.attr_name, controller.attr_val, that);
+                    if(cons){
+                        controller.controller = new cons(data, controller.node, controller.attr_name, controller.attr_val, that);
+                    }
                 }
 
                 // 判断节点是否存在于页面中
@@ -1402,28 +1404,30 @@ var MVVM = (function() {
     // MVVM 控件列表
     var vmControllerList = {};
 
-    // vm-controller 节点扫描
-    var scanController = function(element, vm) {
+    // vm 控件扫描
+    var scanControllerNodes = function(element, vm) {
+
+        querySelectorAll('[vm-controller]', element).forEach(scanController);
 
         var controllerSelector = element.innerHTML.match(/\bvm(-(\w+))+/gim);
 
         // 属性去重
         unique(controllerSelector).forEach(function(attr_name) {
 
-            var attr_type = attr_name.match(/^vm-(\w+)/);
+            var attr_type = (attr_name.match(/^vm-(\w+)/) || [])[1] || '';
 
-            if(attr_type && attr_type.length && attr_type[1]){
+            if(attr_type){
 
                 querySelectorAll('[' + attr_name + ']', element).forEach(function(node) {
 
-                    var id = 'vm-' + String(Math.random()).substr(2, 10);
+                    var id = 'ctrl-' + String(Math.random()).substr(2, 10);
 
                     vm.elements.push({
                         id: id,
                         node: node,
                         attr_name: attr_name,
                         attr_val: node.getAttribute(attr_name),
-                        type: attr_type[1]
+                        type: attr_type
                     });
 
                     node.removeAttribute(attr_name);
@@ -1436,9 +1440,8 @@ var MVVM = (function() {
 
     };
 
-    // 扫描所有 vm-controller 节点
-    querySelectorAll('[vm-controller]').forEach(function(element) {
-
+    // vm-controller 节点扫描
+    var scanController = function(element) {
         // 控件名称
         var name = element.getAttribute('vm-controller');
 
@@ -1453,20 +1456,22 @@ var MVVM = (function() {
 
             vm.wrap.push(element);
 
-            scanController(element, vm);
+            scanControllerNodes(element, vm);
 
             element.removeAttribute('vm-controller');
 
         }
-
-
-    });
+    };
 
     return {
 
         template: template,
 
         define: function(name, data) {
+
+            // 扫描所有 vm-controller 节点
+            querySelectorAll('[vm-controller="' + name + '"]').forEach(scanController);
+
             var vm = vmControllerList[name];
 
             if(!vm){
