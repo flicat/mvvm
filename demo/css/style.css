@@ -44,3 +44,34 @@ input {
     padding: 2px 3px;
     margin: 0;
 }
+
+.html {
+    height: 150px;
+}
+
+.form {
+    display: block;
+}
+.form:after,
+.form::after {
+    content: '';
+    display: block;
+    width: 0;
+    height: 0;
+    clear: both;
+    visibility: hidden;
+}
+
+.form .row {
+    width: 50%;
+    float: left;
+}
+.form .row label {
+    display: block;
+}
+
+.form .wrap {
+    width: 100%;
+    float: left;
+    margin-top: 15px;
+}

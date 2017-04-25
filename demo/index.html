@@ -29,20 +29,20 @@
                 <script type="text/html">
                     <% for(var key in colorArr){ %>
                     <label vm-css-color="color">
-                        <span><%= colorArr[key] %></span>
                         <input type="checkbox" name="color" vm-value="value" value="<%= key %>">
+                        <span><%= colorArr[key] %></span>
                     </label>
                     <% } %>
                 </script>
             </div>
-            <div class="row" vm-html="colorArr">
+            <div class="row" vm-html="value">
                 <script type="text/html">
-                    <% for(var key in colorArr){ %>
+                    <% value.forEach(function(key) { %>
                     <label vm-css-color="color">
-                        <span><%= colorArr[key] %></span>
                         <input type="radio" name="color" vm-value="color" value="<%= key %>">
+                        <span><%= colorArr[key] %></span>
                     </label>
-                    <% } %>
+                    <% }) %>
                 </script>
             </div>
             <div class="wrap" vm-css-color="color">
@@ -70,7 +70,7 @@
         var colorArr = {'red': '红色', 'orange': '橙色', 'yellow': '黄色', 'green': '绿色', 'cyan': '青色', 'blue': '蓝色', 'purple': '紫色'};
         var vmData = MVVM.define('my-vm',  {
             name: '彩虹',
-            colorArr: colorArr,
+            colorArr: null,
             value: ['green'],
             color: '',
             setBorderColor: function(color) {
@@ -79,8 +79,10 @@
             }
         });
 
+        vmData.colorArr = colorArr;
+
         vmData.__addObserveEvent__.call(vmData, function() {
-            console && console.log(vmData.color);
+//            console && console.log(vmData.color);
         });
 
     </script>
