@@ -1116,13 +1116,13 @@ var MVVM = (function() {
                 if(elem.__is_set_val__){
                     elem.__is_set_val__ = false;
                 } else {
-                    var value = elem.value;
+                        var value = elem.value;
 
-                    if(isArray(newValue)){
-                        elem.checked = (newValue.indexOf(value) > -1);
-                    } else {
-                        elem.checked = (value == newValue);
-                    }
+                        if(isArray(newValue)){
+                            elem.checked = (newValue.indexOf(value) > -1);
+                        } else {
+                            elem.checked = (value == newValue);
+                        }
                 }
 
             };
@@ -1177,7 +1177,7 @@ var MVVM = (function() {
         }
 
         // 浏览器记住表单值则赋值到变量
-        window.addEventListener('load', function() {
+        addEventListener(window, 'load', function() {
             setTimeout(eventHandler, 500);
         });
 
