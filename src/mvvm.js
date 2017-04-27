@@ -174,7 +174,7 @@ var MVVM = (function() {
         element.__customEvent[eventNameSpace][type].push(handler);
 
         if(element.addEventListener){
-            element.addEventListener(type , handler , false);
+        element.addEventListener(type , handler , false);
         } else if(element.attachEvent){
             element.attachEvent('on' + type , handler);
         } else {
@@ -193,7 +193,7 @@ var MVVM = (function() {
         var remove = function(element, type, handler){
 
             if(element.removeEventListener){
-                element.removeEventListener(type , handler , false);
+            element.removeEventListener(type , handler , false);
             } else if(element.detachEvent){
                 element.detachEvent('on' + type , handler);
             } else {
@@ -850,7 +850,7 @@ var MVVM = (function() {
                         '\tEnd If',
                         '\tOn Error Goto 0',
                         '\tEnd Property')
-                }
+    }
                 buffer.push('End Class');
                 buffer.push(
                     'Function ' + className + 'Factory(a, b)',
@@ -1066,15 +1066,13 @@ var MVVM = (function() {
 
         // 表单元素双向绑定
         if(type == 'radio'){        // 单选框
+
             eventHandler = function() {
                 if(elem.checked){
                     that.setData(data, elem.value);
-                    elem.__is_set_val__ = true;
+                    this.__is_set_val__ = true;
                 }
             };
-
-            removeEventListener(elem, event_name);
-            addEventListener(elem, event_name, eventHandler);
 
             // 赋值方法
             setValue = function(newValue) {
@@ -1085,37 +1083,42 @@ var MVVM = (function() {
                 }
             };
 
-        } else if(type == 'checkbox'){    // 复选框组
-
-            eventHandler = function() {
-                var val_arr = that.getData(data)();
-                var checked = elem.checked;
-                var value = elem.value;
-
-                if(!isArray(val_arr)){
-                    val_arr = [val_arr];
-                }
-
-                if(checked && val_arr.indexOf(value) < 0){
-                    val_arr.push(value);
-                } else if(!checked && val_arr.indexOf(value) > -1){
-                    val_arr.splice(val_arr.indexOf(value), 1);
-                }
-
-                that.setData(data, val_arr.concat());
-
-                elem.__is_set_val__ = true;
-
-            };
-
             removeEventListener(elem, event_name);
             addEventListener(elem, event_name, eventHandler);
 
-            // 赋值方法
-            setValue = function(newValue) {
-                if(elem.__is_set_val__){
-                    elem.__is_set_val__ = false;
-                } else {
+        } else if(type == 'checkbox'){    // 复选框组
+
+            var input_name = elem.name;
+
+            if(input_name){
+                // 如果设置了name值则作为数组对象使用
+
+                eventHandler = function() {
+                    var val_arr = that.getData(data)();
+                    var checked = elem.checked;
+                    var value = elem.value;
+
+                    if(!isArray(val_arr)){
+                        val_arr = [val_arr];
+                    }
+
+                    if(checked && val_arr.indexOf(value) < 0){
+                        val_arr.push(value);
+                    } else if(!checked && val_arr.indexOf(value) > -1){
+                        val_arr.splice(val_arr.indexOf(value), 1);
+                    }
+
+                    that.setData(data, val_arr.concat());
+
+                    this.__is_set_val__ = true;
+
+                };
+
+                // 赋值方法
+                setValue = function(newValue) {
+                    if(elem.__is_set_val__){
+                        elem.__is_set_val__ = false;
+                    } else {
                         var value = elem.value;
 
                         if(isArray(newValue)){
@@ -1123,19 +1126,38 @@ var MVVM = (function() {
                         } else {
                             elem.checked = (value == newValue);
                         }
-                }
+                    }
 
-            };
+                };
+            } else {
+                // 如果没有设置name值则作为布尔对象使用
+
+                eventHandler = function() {
+                    that.setData(data, !!elem.checked);
+                    this.__is_set_val__ = true;
+
+                };
+
+                // 赋值方法
+                setValue = function(newValue) {
+                    if(elem.__is_set_val__){
+                        elem.__is_set_val__ = false;
+                    } else {
+                        elem.checked = !!newValue;
+                    }
+                };
+
+            }
+
+            removeEventListener(elem, event_name);
+            addEventListener(elem, event_name, eventHandler);
 
         } else if(type == 'file') {    // 文件选择框
 
             eventHandler = function() {
                 that.setData(data, elem.files);
-                elem.__is_set_val__ = true;
+                this.__is_set_val__ = true;
             };
-
-            event_name && removeEventListener(elem, event_name);
-            addEventListener(elem, event_name, eventHandler);
 
             // 赋值方法
             setValue = function(newValue) {
@@ -1151,15 +1173,15 @@ var MVVM = (function() {
 
             };
 
+            event_name && removeEventListener(elem, event_name);
+            addEventListener(elem, event_name, eventHandler);
+
         } else {    // 文本框/下拉菜单
 
             eventHandler = function() {
                 that.setData(data, elem.value);
-                elem.__is_set_val__ = true;
+                this.__is_set_val__ = true;
             };
-
-            event_name && removeEventListener(elem, event_name);
-            addEventListener(elem, event_name, eventHandler);
 
             // 赋值方法
             setValue = function(newValue) {
@@ -1174,6 +1196,9 @@ var MVVM = (function() {
                 }
 
             };
+
+            event_name && removeEventListener(elem, event_name);
+            addEventListener(elem, event_name, eventHandler);
         }
 
         // 浏览器记住表单值则赋值到变量
